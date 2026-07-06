@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NativeMind — Task Management</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#F3F4FC;
+    --ink:#151530;
+    --muted:#767B9E;
+    --muted-2:#A6AAC6;
+    --blue:#4F6EF7;
+    --purple:#8B5CF6;
+    --gradient: linear-gradient(120deg,#5B6EF5,#8B5CF6);
+    --card:#FFFFFF;
+    --line:#EAEBF6;
+    --line-soft:#F2F3FA;
+    --sidebar-active-bg:#ECEBFE;
+    --success-bg:#E4F8EA; --success-text:#1E9A52; --success-dot:#22C55E;
+    --pending-bg:#FDF1DE; --pending-text:#B4700E; --pending-dot:#F59E0B;
+    --revise-bg:#EEE9FE; --revise-text:#7C3AED; --revise-dot:#8B5CF6;
+    --reject-bg:#FCE8E9; --reject-text:#D5343F; --reject-dot:#EF4444;
+    --radius-lg:20px; --radius-md:14px; --radius-sm:10px;
+    --shadow-sm: 0 1px 2px rgba(21,21,48,0.04), 0 1px 1px rgba(21,21,48,0.03);
+    --shadow-md: 0 10px 26px rgba(21,21,48,0.07), 0 2px 6px rgba(21,21,48,0.04);
+    --shadow-lg: 0 24px 50px rgba(91,110,245,0.16), 0 6px 16px rgba(21,21,48,0.08);
+  }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{ margin:0; font-family:'Inter',sans-serif; color:var(--ink); background:var(--bg); -webkit-font-smoothing:antialiased; }
+  h1,h2,h3,.brand{ font-family:'Baloo 2',sans-serif; letter-spacing:-0.01em; }
+  a{ color:inherit; text-decoration:none; }
+  button{ font-family:inherit; }
+  svg{ display:block; flex-shrink:0; }
+  ::selection{ background:#DCE3FE; }
+
+  .shell{ display:flex; min-height:100vh; }
+
+  /* ---------------- Sidebar ---------------- */
+  .sidebar{ width:246px; flex-shrink:0; background:#fff; border-right:1px solid var(--line); display:flex; flex-direction:column; padding:22px 16px; position:sticky; top:0; height:100vh; }
+  .brand-row{ display:flex; align-items:center; gap:9px; padding:4px 8px 24px; }
+  .brand-mark{ width:32px; height:32px; border-radius:9px; background:var(--gradient); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:14px; box-shadow:var(--shadow-sm); }
+  .brand{ font-size:18px; font-weight:800; }
+  .brand span{ color:var(--blue); }
+
+  .nav-group{ margin-bottom:6px; }
+  .nav-item{ display:flex; align-items:center; gap:11px; padding:10px 12px; border-radius:11px; font-size:14px; font-weight:600; color:var(--muted); cursor:pointer; margin-bottom:2px; transition:background .15s, color .15s; }
+  .nav-item .ico{ width:18px; height:18px; color:var(--muted-2); flex-shrink:0; }
+  .nav-item:hover{ background:var(--line-soft); color:var(--ink); }
+  .nav-item.active{ background:var(--sidebar-active-bg); color:var(--blue); }
+  .nav-item.active .ico{ color:var(--blue); }
+
+  .sidebar-footer{ margin-top:auto; }
+  .role-card{ background:var(--line-soft); border-radius:13px; padding:10px 12px; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; }
+  .role-card .lbl{ font-size:10.5px; color:var(--muted-2); font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
+  .role-card .val{ display:flex; align-items:center; gap:6px; font-size:13.5px; font-weight:700; color:var(--ink); margin-top:2px; }
+  .role-card .val .ico{ width:15px; height:15px; color:var(--purple); }
+  .logout-row{ display:flex; align-items:center; gap:9px; padding:9px 12px; font-size:13.5px; font-weight:600; color:var(--muted); cursor:pointer; border-radius:11px; }
+  .logout-row:hover{ background:var(--line-soft); color:var(--reject-text); }
+  .logout-row .ico{ width:16px; height:16px; }
+
+  /* ---------------- Main ---------------- */
+  main{ flex:1; padding:26px 34px 50px; max-width:1360px; }
+  .topbar{ display:flex; align-items:center; justify-content:flex-end; gap:14px; margin-bottom:22px; }
+  .btn{ font-weight:700; font-size:13.5px; border:none; border-radius:12px; padding:10px 18px; cursor:pointer; transition:transform .12s, box-shadow .12s, filter .12s; display:inline-flex; align-items:center; gap:7px; }
+  .btn:active{ transform:scale(0.97); }
+  .btn-primary{ background:var(--gradient); color:#fff; box-shadow:var(--shadow-sm); }
+  .btn-primary:hover{ filter:brightness(1.05); box-shadow:var(--shadow-md); }
+  .btn-ghost{ background:#fff; color:var(--ink); border:1px solid var(--line); }
+  .btn-ghost:hover{ border-color:var(--blue); color:var(--blue); }
+  .btn-danger{ background:var(--reject-bg); color:var(--reject-text); }
+  .btn-sm{ padding:7px 12px; font-size:12px; border-radius:9px; }
+  .icon-btn{ width:38px; height:38px; border-radius:11px; background:#fff; border:1px solid var(--line); display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .icon-btn .ico{ width:17px; height:17px; color:var(--muted); }
+  .avatar-chip{ display:flex; align-items:center; gap:9px; background:#fff; border:1px solid var(--line); border-radius:13px; padding:6px 12px 6px 6px; cursor:pointer; }
+  .avatar-circle{ width:30px; height:30px; border-radius:50%; background:var(--gradient); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; }
+  .avatar-chip .name{ font-size:13.5px; font-weight:700; line-height:1.2; }
+  .avatar-chip .role{ font-size:11px; color:var(--muted); font-weight:600; }
+
+  .welcome-eyebrow{ font-size:13.5px; color:var(--muted); font-weight:600; margin:0 0 4px; }
+  .page-title{ font-size:34px; margin:0 0 6px; }
+  .page-sub{ color:var(--muted); font-size:14.5px; margin:0 0 26px; }
+
+  .kpi-grid{ display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-bottom:24px; }
+  .kpi-card{ background:var(--card); border:1px solid var(--line); border-radius:var(--radius-md); padding:18px; box-shadow:var(--shadow-sm); transition:box-shadow .15s, transform .15s; display:flex; flex-direction:column; gap:14px; }
+  .kpi-card:hover{ box-shadow:var(--shadow-md); transform:translateY(-2px); }
+  .kpi-top{ display:flex; justify-content:space-between; align-items:flex-start; }
+  .kpi-label{ font-size:13px; color:var(--muted); font-weight:600; }
+  .kpi-badge{ width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; }
+  .kpi-badge .ico{ width:17px; height:17px; }
+  .kpi-num{ font-size:27px; font-weight:800; font-family:'Baloo 2'; }
+
+  .content-grid{ display:grid; grid-template-columns:1fr 300px; gap:20px; align-items:start; }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:var(--radius-lg); padding:22px; box-shadow:var(--shadow-sm); }
+  .card + .card{ margin-top:18px; }
+
+  .table-toolbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; gap:10px; flex-wrap:wrap; }
+  .table-toolbar h3{ margin:0; font-size:18px; }
+  .toolbar-right{ display:flex; gap:8px; align-items:center; }
+  .search-wrap{ position:relative; }
+  .search-wrap .ico{ position:absolute; left:12px; top:50%; transform:translateY(-50%); width:15px; height:15px; color:var(--muted-2); }
+  .search-wrap input{ width:190px; padding:9px 12px 9px 34px; border-radius:11px; border:1px solid var(--line); background:var(--line-soft); font-size:13px; }
+  select.filter-select{ padding:9px 12px; border-radius:11px; border:1px solid var(--line); background:#fff; font-size:13px; font-weight:600; color:var(--ink); }
+
+  table{ width:100%; border-collapse:collapse; }
+  th{ text-align:left; font-size:11.5px; color:var(--muted-2); padding:10px 14px; border-bottom:1px solid var(--line); font-weight:700; letter-spacing:.03em; text-transform:uppercase; }
+  td{ padding:13px 14px; border-bottom:1px solid var(--line-soft); font-size:13.8px; }
+  tr:last-child td{ border-bottom:none; }
+  .task-name-cell{ font-weight:700; }
+  .status-badge{ display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; padding:5px 12px; border-radius:20px; }
+  .status-badge.paid{ background:var(--success-bg); color:var(--success-text); }
+  .status-badge.pending{ background:var(--pending-bg); color:var(--pending-text); }
+  .status-badge.revision{ background:var(--revise-bg); color:var(--revise-text); }
+  .status-badge.rejected{ background:var(--reject-bg); color:var(--reject-text); }
+  select.status-select{ font-family:'Inter'; font-size:12px; font-weight:700; padding:6px 9px; border-radius:20px; border:1px solid var(--line); background:#fff; }
+  .action-cell{ display:flex; gap:6px; align-items:center; }
+
+  .pagination{ display:flex; justify-content:center; align-items:center; gap:6px; margin-top:18px; }
+  .page-btn{ width:32px; height:32px; border-radius:9px; border:1px solid var(--line); background:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:13px; font-weight:700; color:var(--muted); }
+  .page-btn.active{ background:var(--gradient); color:#fff; border-color:transparent; }
+  .page-btn:disabled{ opacity:.4; cursor:default; }
+
+  /* right column */
+  label{ font-size:11.5px; font-weight:700; color:var(--muted); display:block; margin-bottom:6px; }
+  input[type=text], input[type=password], select.full{ width:100%; padding:11px 13px; border-radius:11px; border:1px solid var(--line); font-family:'Inter'; font-size:14px; background:var(--line-soft); }
+  input:focus, select:focus{ outline:none; border-color:var(--blue); background:#fff; box-shadow:0 0 0 3px rgba(79,110,247,0.12); }
+  .field{ margin-bottom:14px; }
+  .msg{ font-size:12.5px; margin-top:6px; min-height:15px; }
+  .msg.error{ color:var(--reject-text); } .msg.ok{ color:var(--success-text); }
+
+  .guide-row{ display:flex; gap:10px; margin-bottom:14px; align-items:flex-start; }
+  .guide-row:last-child{ margin-bottom:0; }
+  .guide-dot{ width:9px; height:9px; border-radius:50%; margin-top:5px; flex-shrink:0; }
+  .guide-row b{ font-size:13.5px; display:block; }
+  .guide-row span{ font-size:12.5px; color:var(--muted); }
+
+  .perm-row{ display:flex; gap:11px; margin-bottom:14px; align-items:flex-start; }
+  .perm-row:last-child{ margin-bottom:0; }
+  .perm-icon{ width:32px; height:32px; border-radius:9px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .perm-icon .ico{ width:15px; height:15px; }
+  .perm-row b{ font-size:13.5px; display:block; }
+  .perm-row span{ font-size:12px; color:var(--muted); }
+
+  .banner{ display:flex; align-items:center; justify-content:space-between; gap:20px; margin-top:20px; padding:22px 28px; background:linear-gradient(120deg,#ECEBFE,#F3E9FE); border-radius:var(--radius-lg); border:1px solid var(--line); }
+  .banner-left{ display:flex; align-items:center; gap:16px; }
+  .banner-icon{ width:44px; height:44px; border-radius:12px; background:#fff; display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow-sm); }
+  .banner-icon .ico{ width:20px; height:20px; color:var(--blue); }
+  .banner h3{ margin:0 0 3px; font-size:16.5px; }
+  .banner p{ margin:0; color:var(--muted); font-size:13px; }
+
+  .locked-box{ text-align:center; padding:40px 16px; color:var(--muted); }
+  .locked-box .ico{ width:32px; height:32px; color:var(--muted-2); margin:0 auto 10px; }
+  .empty-state{ text-align:center; padding:60px 16px; color:var(--muted); }
+  .empty-state .ico{ width:38px; height:38px; color:var(--muted-2); margin:0 auto 12px; }
+
+  .modal-bg{ position:fixed; inset:0; background:rgba(21,21,48,0.5); display:none; align-items:center; justify-content:center; z-index:50; backdrop-filter:blur(2px); }
+  .modal-bg.show{ display:flex; }
+  .modal{ background:#fff; border-radius:20px; padding:28px; width:380px; max-width:90vw; box-shadow:var(--shadow-lg); }
+  .modal h3{ margin-top:0; }
+  .modal-actions{ display:flex; gap:10px; margin-top:16px; }
+  .modal-actions .btn{ flex:1; justify-content:center; }
+
+  @media (max-width: 980px){
+    .content-grid{ grid-template-columns:1fr; }
+    .kpi-grid{ grid-template-columns:repeat(2,1fr); }
+  }
+  @media (max-width: 720px){
+    .shell{ flex-direction:column; }
+    .sidebar{ width:auto; height:auto; position:relative; }
+    main{ padding:20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand-row">
+      <div class="brand-mark">N</div>
+      <div class="brand">Native<span>Mind</span></div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-item" id="navDashboard">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
+        <span>Dashboard</span>
+      </div>
+      <div class="nav-item active" id="navTasks">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg>
+        <span>Tasks</span>
+      </div>
+      <div class="nav-item" id="navMyTasks">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+        <span>My Tasks</span>
+      </div>
+      <div class="nav-item" id="navReports">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/></svg>
+        <span>Reports</span>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="role-card" id="roleCard">
+        <div>
+          <div class="lbl">Role</div>
+          <div class="val" id="roleVal">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            <span id="roleLabel">Contributor</span>
+          </div>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+      </div>
+      <div class="logout-row" id="logoutRow" style="display:none;">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        <span>Log Out</span>
+      </div>
+    </div>
+  </aside>
+
+  <main>
+    <div class="topbar">
+      <button class="btn btn-primary" id="newTaskBtn" style="display:none;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        New Task
+      </button>
+      <div class="avatar-chip" id="roleCard2">
+        <div class="avatar-circle" id="avatarLetter">?</div>
+        <div>
+          <div class="name" id="topName">Guest</div>
+          <div class="role" id="topRole">Click to unlock Head Leader</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="pageBody"></div>
+  </main>
+</div>
+
+<!-- Head Leader login -->
+<div class="modal-bg" id="leadModalBg">
+  <div class="modal">
+    <h3>Head Leader Access</h3>
+    <p style="color:var(--muted);font-size:13px;margin-top:-8px;">Full access to manage every task and contributor.</p>
+    <div class="field"><label>Your name</label><input type="text" id="leadNameInput" placeholder="e.g. Ahmed"></div>
+    <div class="field"><label>Access password</label><input type="password" id="leadPassInput"></div>
+    <div class="msg error" id="leadMsg"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('leadModalBg')">Cancel</button>
+      <button class="btn btn-primary" id="leadSubmit">Unlock</button>
+    </div>
+  </div>
+</div>
+
+<!-- New task modal -->
+<div class="modal-bg" id="newTaskModalBg">
+  <div class="modal">
+    <h3>Create a new task</h3>
+    <div class="field"><label>Task name</label><input type="text" id="newTaskName" placeholder="e.g. Voice Recording — Batch 3"></div>
+    <div class="field"><label>Task password (share with approved contributors)</label><input type="text" id="newTaskPass"></div>
+    <div class="msg error" id="newTaskMsg"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('newTaskModalBg')">Cancel</button>
+      <button class="btn btn-primary" id="newTaskSubmit">Create task</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========== CONFIG — edit these three values only =========== */
+const SUPABASE_URL = "YOUR_SUPABASE_URL";
+const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+const HEAD_LEADER_PASSWORD = "change_this_password";
+/* ================================================================ */
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let isLead = false;
+let leadName = "";
+let tasks = [];
+let entriesCache = {};
+let unlockedTasks = {};
+let activePage = 'tasks'; // tasks | dashboard | mytasks | reports
+let currentPage = 1;
+const PAGE_SIZE = 7;
+let tableFilterTaskId = 'all';
+let tableSearch = '';
+
+const statusMeta = {
+  pending:  { label:"Pending",  cls:"pending" },
+  paid:     { label:"Paid",     cls:"paid" },
+  rejected: { label:"Rejected", cls:"rejected" },
+  revision: { label:"Revision", cls:"revision" },
+};
+
+const ICONS = {
+  list: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+  check: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+  clock: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>',
+  refresh: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/></svg>',
+  x: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  eye: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>',
+  trash: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0-1 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L6 6"/></svg>',
+  search: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>',
+  lock: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+  globe: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20Z"/></svg>',
+  users: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-3.5 3-5.5 7-5.5s7 2 7 5.5"/><circle cx="18" cy="8" r="2.5"/><path d="M16 14.5c2.7.3 4.5 2 4.5 5.5"/></svg>',
+  inbox: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>',
+};
+
+function openModal(id){ document.getElementById(id).classList.add('show'); }
+function closeModal(id){ document.getElementById(id).classList.remove('show'); document.querySelectorAll('.msg').forEach(m=>m.textContent=''); }
+function esc(str){ return String(str==null?'':str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+/* ---------- Head Leader auth ---------- */
+document.getElementById('roleCard').onclick = toggleLeadModal;
+document.getElementById('roleCard2').onclick = toggleLeadModal;
+function toggleLeadModal(){ if(!isLead) openModal('leadModalBg'); }
+
+document.getElementById('logoutRow').onclick = () => {
+  isLead = false; leadName = '';
+  document.getElementById('newTaskBtn').style.display = 'none';
+  document.getElementById('logoutRow').style.display = 'none';
+  updateIdentityUI();
+  renderPage();
+};
+
+document.getElementById('leadSubmit').onclick = () => {
+  const val = document.getElementById('leadPassInput').value;
+  const name = document.getElementById('leadNameInput').value.trim() || 'Head Leader';
+  if(val === HEAD_LEADER_PASSWORD){
+    isLead = true; leadName = name;
+    document.getElementById('newTaskBtn').style.display = 'inline-flex';
+    document.getElementById('logoutRow').style.display = 'flex';
+    closeModal('leadModalBg');
+    document.getElementById('leadPassInput').value=''; document.getElementById('leadNameInput').value='';
+    updateIdentityUI();
+    renderPage();
+  } else {
+    document.getElementById('leadMsg').textContent = 'Incorrect password';
+  }
+};
+
+function updateIdentityUI(){
+  document.getElementById('roleLabel').textContent = isLead ? 'Head Leader' : 'Contributor';
+  document.getElementById('topName').textContent = isLead ? leadName : 'Guest';
+  document.getElementById('topRole').textContent = isLead ? 'Head Leader' : 'Click to unlock Head Leader';
+  document.getElementById('avatarLetter').textContent = isLead ? leadName.charAt(0).toUpperCase() : '?';
+}
+
+/* ---------- Nav ---------- */
+document.getElementById('navDashboard').onclick = () => setPage('dashboard');
+document.getElementById('navTasks').onclick = () => setPage('tasks');
+document.getElementById('navMyTasks').onclick = () => setPage('mytasks');
+document.getElementById('navReports').onclick = () => setPage('reports');
+function setPage(p){
+  activePage = p; currentPage = 1;
+  ['navDashboard','navTasks','navMyTasks','navReports'].forEach(id => document.getElementById(id).classList.remove('active'));
+  const map = { dashboard:'navDashboard', tasks:'navTasks', mytasks:'navMyTasks', reports:'navReports' };
+  document.getElementById(map[p]).classList.add('active');
+  renderPage();
+}
+
+/* ---------- New task ---------- */
+document.getElementById('newTaskBtn').onclick = () => openModal('newTaskModalBg');
+document.getElementById('newTaskSubmit').onclick = async () => {
+  const name = document.getElementById('newTaskName').value.trim();
+  const pass = document.getElementById('newTaskPass').value.trim();
+  if(!name || !pass){ document.getElementById('newTaskMsg').textContent = 'Enter a name and a password'; return; }
+  const { error } = await supabase.from('tasks').insert({ name, password: pass });
+  if(error){ document.getElementById('newTaskMsg').textContent = 'Error: ' + error.message; return; }
+  closeModal('newTaskModalBg');
+  document.getElementById('newTaskName').value=''; document.getElementById('newTaskPass').value='';
+  await loadAll(); renderPage();
+};
+
+/* ---------- Data ---------- */
+async function loadAll(){
+  const { data: t } = await supabase.from('tasks').select('*').order('created_at', { ascending:false });
+  tasks = t || [];
+  for(const task of tasks){
+    const { data: e } = await supabase.from('entries').select('*').eq('task_id', task.id).order('created_at', { ascending:false });
+    entriesCache[task.id] = e || [];
+  }
+}
+function allEntriesFlat(){
+  const rows = [];
+  tasks.forEach(t => (entriesCache[t.id]||[]).forEach(e => rows.push({ ...e, taskName: t.name, taskId: t.id })));
+  return rows;
+}
+
+/* ---------- Router ---------- */
+function renderPage(){
+  if(activePage === 'dashboard') renderDashboard();
+  else if(activePage === 'mytasks') renderMyTasks();
+  else if(activePage === 'reports') renderReports();
+  else renderTasksPage();
+}
+
+function kpiTotals(){
+  const totals = { total:0, pending:0, paid:0, rejected:0, revision:0 };
+  allEntriesFlat().forEach(e => { totals.total++; if(totals[e.status]!==undefined) totals[e.status]++; });
+  return totals;
+}
+
+function kpiGridHtml(){
+  const t = kpiTotals();
+  return `
+  <div class="kpi-grid">
+    <div class="kpi-card"><div class="kpi-top"><div class="kpi-label">Total Tasks</div><div class="kpi-badge" style="background:var(--sidebar-active-bg);color:var(--blue);">${ICONS.list}</div></div><div class="kpi-num">${tasks.length}</div></div>
+    <div class="kpi-card"><div class="kpi-top"><div class="kpi-label">Paid</div><div class="kpi-badge" style="background:var(--success-bg);color:var(--success-text);">${ICONS.check}</div></div><div class="kpi-num">${t.paid}</div></div>
+    <div class="kpi-card"><div class="kpi-top"><div class="kpi-label">Pending</div><div class="kpi-badge" style="background:var(--pending-bg);color:var(--pending-text);">${ICONS.clock}</div></div><div class="kpi-num">${t.pending}</div></div>
+    <div class="kpi-card"><div class="kpi-top"><div class="kpi-label">Revision</div><div class="kpi-badge" style="background:var(--revise-bg);color:var(--revise-text);">${ICONS.refresh}</div></div><div class="kpi-num">${t.revision}</div></div>
+    <div class="kpi-card"><div class="kpi-top"><div class="kpi-label">Rejected</div><div class="kpi-badge" style="background:var(--reject-bg);color:var(--reject-text);">${ICONS.x}</div></div><div class="kpi-num">${t.rejected}</div></div>
+  </div>`;
+}
+
+function bannerHtml(){
+  return `
+  <div class="banner">
+    <div class="banner-left">
+      <div class="banner-icon">${ICONS.globe}</div>
+      <div><h3>Work from anywhere</h3><p>Manage and complete tasks from any device. Stay productive.</p></div>
+    </div>
+  </div>`;
+}
+
+/* ---------- Tasks page (main) ---------- */
+function renderTasksPage(){
+  const body = document.getElementById('pageBody');
+  const rows = allEntriesFlat().filter(r => {
+    if(tableFilterTaskId !== 'all' && r.taskId !== tableFilterTaskId) return false;
+    if(tableSearch && !( (r.contributor_name||'').toLowerCase().includes(tableSearch) || (r.file_name||'').toLowerCase().includes(tableSearch) || (r.taskName||'').toLowerCase().includes(tableSearch) )) return false;
+    return true;
+  });
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  currentPage = Math.min(currentPage, totalPages);
+  const pageRows = rows.slice((currentPage-1)*PAGE_SIZE, currentPage*PAGE_SIZE);
+
+  let html = `
+    <p class="welcome-eyebrow">Welcome back, ${esc(isLead ? leadName : 'friend')} 👋</p>
+    <h1 class="page-title">Task Management</h1>
+    <p class="page-sub">Organize, track, and manage every task in one place.</p>
+    ${kpiGridHtml()}
+    <div class="content-grid">
+      <div>
+        <div class="card">
+          <div class="table-toolbar">
+            <h3>All Tasks</h3>
+            <div class="toolbar-right">
+              <div class="search-wrap">${ICONS.search}<input type="text" id="tableSearchInput" placeholder="Search tasks or names..." value="${esc(tableSearch)}"></div>
+              <select class="filter-select" id="taskFilterSelect">
+                <option value="all">All tasks</option>
+                ${tasks.map(t => `<option value="${t.id}" ${tableFilterTaskId===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}
+              </select>
+              ${isLead ? '' : ''}
+            </div>
+          </div>
+  `;
+
+  if(!rows.length){
+    html += `<div class="empty-state">${ICONS.inbox}<h3 style="font-size:16px;margin:0 0 4px;">No submissions found</h3><p style="margin:0;font-size:13px;">Try a different search or filter.</p></div>`;
+  } else {
+    html += `<table><thead><tr><th>Task Name</th><th>File Name</th><th>User</th><th>Pass</th><th>Status</th><th>Actions</th></tr></thead><tbody>`;
+    pageRows.forEach(e => {
+      const meta = statusMeta[e.status] || statusMeta.pending;
+      html += `<tr>
+        <td class="task-name-cell">${esc(e.taskName)}</td>
+        <td>${esc(e.file_name)}</td>
+        <td>${esc(e.contributor_name)}</td>
+        <td>${esc(e.entry_password || '—')}</td>
+        <td>`;
+      if(isLead){
+        html += `<select class="status-select" onchange="updateStatus('${e.id}','${e.taskId}',this.value)">`;
+        Object.keys(statusMeta).forEach(k => html += `<option value="${k}" ${e.status===k?'selected':''}>${statusMeta[k].label}</option>`);
+        html += `</select>`;
+      } else {
+        html += `<span class="status-badge ${meta.cls}">${meta.label}</span>`;
+      }
+      html += `</td><td><div class="action-cell">`;
+      html += `<button class="icon-btn" style="width:30px;height:30px;" onclick="alert('${esc(e.taskName)}\\n\\nFile: ${esc(e.file_name)}\\nUser: ${esc(e.contributor_name)}\\nStatus: ${meta.label}')">${ICONS.eye}</button>`;
+      if(isLead) html += `<button class="icon-btn" style="width:30px;height:30px;color:var(--reject-text);" onclick="deleteEntry('${e.id}','${e.taskId}')">${ICONS.trash}</button>`;
+      html += `</div></td></tr>`;
+    });
+    html += `</tbody></table>`;
+
+    html += `<div class="pagination">
+      <button class="page-btn" ${currentPage===1?'disabled':''} onclick="goPage(${currentPage-1})">‹</button>
+      ${Array.from({length: totalPages}, (_,i) => i+1).slice(0,6).map(p => `<button class="page-btn ${p===currentPage?'active':''}" onclick="goPage(${p})">${p}</button>`).join('')}
+      <button class="page-btn" ${currentPage===totalPages?'disabled':''} onclick="goPage(${currentPage+1})">›</button>
+    </div>`;
+  }
+
+  html += `</div>`; // end card
+  if(isLead && tasks.length){
+    html += `<div class="card">
+      <div class="table-toolbar"><h3>Manage Tasks</h3></div>
+      <table><thead><tr><th>Task Name</th><th>Submissions</th><th>Password</th><th></th></tr></thead><tbody>`;
+    tasks.forEach(t => {
+      html += `<tr>
+        <td class="task-name-cell">${esc(t.name)}</td>
+        <td>${(entriesCache[t.id]||[]).length}</td>
+        <td>${esc(t.password)}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="deleteTask('${t.id}')">Delete task</button></td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+  html += bannerHtml();
+  html += `</div>`; // end left col
+
+  // right column
+  html += `<div>
+    <div class="card">
+      <h3 style="font-size:16.5px;margin:0 0 4px;">Add Yourself to Task</h3>
+      <p style="color:var(--muted);font-size:12.5px;margin:0 0 16px;">If you want to work on a task, find it and add yourself.</p>
+      <div class="field"><label>Select Task</label>
+        <select class="full" id="joinTaskSelect">
+          <option value="">Choose a task</option>
+          ${tasks.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>Task Password</label><input type="password" id="joinTaskPass"></div>
+      <div class="field"><label>Your Name</label><input type="text" id="joinName"></div>
+      <div class="field"><label>File Name</label><input type="text" id="joinFile"></div>
+      <div class="field"><label>Your Password (optional)</label><input type="text" id="joinPersonalPass"></div>
+      <div class="msg" id="joinMsg"></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="joinTask()">Join Task</button>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size:16.5px;margin:0 0 14px;">Quick Guide</h3>
+      <div class="guide-row"><div class="guide-dot" style="background:var(--success-dot);"></div><div><b>Paid</b><span>Task payment has been sent</span></div></div>
+      <div class="guide-row"><div class="guide-dot" style="background:var(--pending-dot);"></div><div><b>Pending</b><span>Waiting for review or payment</span></div></div>
+      <div class="guide-row"><div class="guide-dot" style="background:var(--revise-dot);"></div><div><b>Revision</b><span>Changes requested</span></div></div>
+      <div class="guide-row"><div class="guide-dot" style="background:var(--reject-dot);"></div><div><b>Rejected</b><span>Not approved</span></div></div>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size:16.5px;margin:0 0 14px;">Head Leader Panel</h3>
+      <div class="perm-row"><div class="perm-icon" style="background:var(--sidebar-active-bg);color:var(--blue);">${ICONS.lock}</div><div><b>Full Access</b><span>You have full control</span></div></div>
+      <div class="perm-row"><div class="perm-icon" style="background:var(--revise-bg);color:var(--revise-text);">${ICONS.users}</div><div><b>Manage Contributors</b><span>Review and update any status</span></div></div>
+      <div class="perm-row"><div class="perm-icon" style="background:var(--reject-bg);color:var(--reject-text);">${ICONS.trash}</div><div><b>Delete Tasks</b><span>Remove any task or submission</span></div></div>
+      ${!isLead ? `<p style="font-size:12px;color:var(--muted-2);margin:14px 0 0;">Unlock Head Leader access from the sidebar to use these controls.</p>` : ''}
+    </div>
+  </div>`;
+
+  html += `</div>`; // end content-grid
+  body.innerHTML = html;
+
+  document.getElementById('tableSearchInput').addEventListener('input', (e) => { tableSearch = e.target.value.toLowerCase(); currentPage = 1; renderTasksPage(); });
+  document.getElementById('taskFilterSelect').onchange = (e) => { tableFilterTaskId = e.target.value; currentPage = 1; renderTasksPage(); };
+}
+function goPage(p){ currentPage = p; renderTasksPage(); }
+
+async function joinTask(){
+  const taskId = document.getElementById('joinTaskSelect').value;
+  const taskPass = document.getElementById('joinTaskPass').value;
+  const name = document.getElementById('joinName').value.trim();
+  const file = document.getElementById('joinFile').value.trim();
+  const personalPass = document.getElementById('joinPersonalPass').value.trim();
+  const msgEl = document.getElementById('joinMsg');
+  const task = tasks.find(t => t.id === taskId);
+  if(!task){ msgEl.className='msg error'; msgEl.textContent='Choose a task first'; return; }
+  if(taskPass !== task.password){ msgEl.className='msg error'; msgEl.textContent='Incorrect task password'; return; }
+  if(!name || !file){ msgEl.className='msg error'; msgEl.textContent='Name and file name are required'; return; }
+  const dup = (entriesCache[taskId]||[]).find(e => e.file_name && e.file_name.toLowerCase() === file.toLowerCase());
+  if(dup){ msgEl.className='msg error'; msgEl.textContent='This file name is already registered.'; return; }
+  const { error } = await supabase.from('entries').insert({ task_id: taskId, contributor_name:name, file_name:file, entry_password:personalPass, status:'pending' });
+  if(error){ msgEl.className='msg error'; msgEl.textContent='Error: '+error.message; return; }
+  msgEl.className='msg ok'; msgEl.textContent='You have joined the task!';
+  document.getElementById('joinName').value=''; document.getElementById('joinFile').value=''; document.getElementById('joinPersonalPass').value=''; document.getElementById('joinTaskPass').value='';
+  await loadAll(); renderTasksPage();
+}
+
+async function updateStatus(entryId, taskId, status){
+  await supabase.from('entries').update({ status }).eq('id', entryId);
+  await loadAll(); renderPage();
+}
+async function deleteEntry(entryId, taskId){
+  if(!confirm('Delete this submission?')) return;
+  await supabase.from('entries').delete().eq('id', entryId);
+  await loadAll(); renderPage();
+}
+async function deleteTask(taskId){
+  if(!confirm('Delete this entire task and all its submissions?')) return;
+  await supabase.from('tasks').delete().eq('id', taskId);
+  await loadAll(); renderPage();
+}
+
+/* ---------- Dashboard ---------- */
+function renderDashboard(){
+  const body = document.getElementById('pageBody');
+  let html = `
+    <p class="welcome-eyebrow">Welcome back, ${esc(isLead ? leadName : 'friend')} 👋</p>
+    <h1 class="page-title">Dashboard</h1>
+    <p class="page-sub">A quick snapshot of everything happening across NativeMind tasks.</p>
+    ${kpiGridHtml()}
+    <div class="card">
+      <h3 style="margin:0 0 4px;">Submissions by task</h3>
+      <p style="color:var(--muted);font-size:13px;margin:0 0 16px;">Volume across every active task, highest first.</p>
+  `;
+  if(!tasks.length){
+    html += `<p style="color:var(--muted);font-size:14px;">No tasks yet.</p>`;
+  } else {
+    const max = Math.max(1, ...tasks.map(t => (entriesCache[t.id]||[]).length));
+    [...tasks].sort((a,b) => (entriesCache[b.id]||[]).length - (entriesCache[a.id]||[]).length).forEach(t => {
+      const n = (entriesCache[t.id]||[]).length;
+      html += `<div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;">
+        <div style="width:170px;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(t.name)}</div>
+        <div style="flex:1;height:10px;background:var(--line-soft);border-radius:20px;overflow:hidden;"><div style="height:100%;background:var(--gradient);border-radius:20px;width:${(n/max*100).toFixed(0)}%;"></div></div>
+        <div style="width:30px;text-align:right;font-size:12.5px;color:var(--muted);font-weight:700;">${n}</div>
+      </div>`;
+    });
+  }
+  html += `</div>${bannerHtml()}`;
+  body.innerHTML = html;
+}
+
+/* ---------- My Tasks ---------- */
+function renderMyTasks(){
+  const body = document.getElementById('pageBody');
+  let html = `
+    <p class="welcome-eyebrow">Find your submissions</p>
+    <h1 class="page-title">My Tasks</h1>
+    <p class="page-sub">Type the name you registered with to see the status of everything you've submitted.</p>
+    <div class="card">
+      <div class="field" style="max-width:320px;"><label>Your name</label><input type="text" id="myTasksNameInput" placeholder="e.g. Omar Hassan"></div>
+      <div id="myTasksResults"></div>
+    </div>`;
+  body.innerHTML = html;
+  document.getElementById('myTasksNameInput').addEventListener('input', (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    const results = document.getElementById('myTasksResults');
+    if(!q){ results.innerHTML = ''; return; }
+    const rows = allEntriesFlat().filter(r => (r.contributor_name||'').toLowerCase().includes(q));
+    if(!rows.length){ results.innerHTML = `<p style="color:var(--muted);font-size:13px;">No submissions found for that name.</p>`; return; }
+    let html2 = `<table><thead><tr><th>Task Name</th><th>File Name</th><th>Status</th></tr></thead><tbody>`;
+    rows.forEach(e => {
+      const meta = statusMeta[e.status] || statusMeta.pending;
+      html2 += `<tr><td class="task-name-cell">${esc(e.taskName)}</td><td>${esc(e.file_name)}</td><td><span class="status-badge ${meta.cls}">${meta.label}</span></td></tr>`;
+    });
+    html2 += `</tbody></table>`;
+    results.innerHTML = html2;
+  });
+}
+
+/* ---------- Reports ---------- */
+function renderReports(){ renderDashboard(); document.querySelector('.page-title').textContent = 'Reports'; }
+
+/* ---------- Init ---------- */
+(async function init(){
+  if(SUPABASE_URL.includes('YOUR_SUPABASE')){
+    document.getElementById('pageBody').innerHTML = `
+      <div class="card" style="max-width:560px;margin-top:40px;">
+        <h3>Setup required</h3>
+        <p style="color:var(--muted);">Open this HTML file and set SUPABASE_URL, SUPABASE_ANON_KEY and HEAD_LEADER_PASSWORD near the bottom of the script.</p>
+      </div>`;
+    return;
+  }
+  await loadAll();
+  updateIdentityUI();
+  renderPage();
+})();
+</script>
+</body>
+</html>
